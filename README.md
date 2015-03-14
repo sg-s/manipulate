@@ -29,8 +29,15 @@ allows us to:
 
 ![](./hill2.gif)
 
+* the model can have any number of outputs. Manipulate will allow you to plot all of them if you wish. This works because Manipulate reads your function file and determines how many outputs there are. 
 
 ## More sophisticated manipulation 
+
+### Specify a parameter structure
+
+### Compare model outputs to a target
+
+### Manipulate simulations 
 
 ## Installation 
 
@@ -47,4 +54,4 @@ Manipulate needs MATLAB R2014b or later.
 ## Known bugs and limitations
 
 1. Manipulate window does not close when manipulating external models. That's because the external model file doesn't know about the existence of Manipulate. 
-3. Manipulate will not work with functions defined as [varargout] = foo(varargin);
+3. Manipulate will not work with functions defined as `[varargout] = foo(varargin)`
