@@ -19,7 +19,30 @@ Manipulate('hill',[],[1:100]);
 
 ## Model manipulation 
 
+Manipulate can also work with models in the form `[a,b,c...] = function(p,x)` where p is a structure array containing parameters. 
+
+```
+Manipulate('hill',[],x)
+```
+
+allows us to:
+
+![](./hill2.gif)
+
+
 ## More sophisticated manipulation 
+
+## Installation 
+
+Install using my package manager:
+
+```matlab
+urlwrite('http://srinivas.gs/install.m','install.m')
+install manipulate
+install srinivas.gs_mtools % Manipulate needs this to work
+```
+
+Manipulate needs MATLAB R2014b or later.
 
 ## Known bugs and limitations
 
