@@ -33,6 +33,8 @@ allows us to:
 
 ## More sophisticated manipulation 
 
+Manipulate can also manipulate models that generate their own figures, etc. More details soon. 
+
 ### Specify a parameter structure
 
 ### Compare model outputs to a target
@@ -47,6 +49,12 @@ Install using my package manager:
 urlwrite('http://srinivas.gs/install.m','install.m')
 install manipulate
 install srinivas.gs_mtools % Manipulate needs this to work
+```
+
+or install using git: 
+
+```bash
+git clone https://github.com/sg-s/manipulate # remember to fix your MATLAB path
 ```
 
 Manipulate needs MATLAB R2014b or later.

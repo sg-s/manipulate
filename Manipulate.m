@@ -38,6 +38,7 @@ if nargin < 2 || isempty(varargin{2})
 		error('Unable to figure out the model parameters. Specify manually')
 	end
 	mp = p;
+
 else
 	p = varargin{2};
 	if isstruct(p)
@@ -224,7 +225,10 @@ function [] = update_plots(src,event)
 			set(plot_control,'String',plot_control_string);
 			EvaluateModel2(stimplot,respplot,plot_these);
 			an = argoutnames(fname);
-			set(plot_response_here,'String',an(find(plot_these)));
+			try
+				set(plot_response_here,'String',an(find(plot_these)));
+			catch
+			end
 			
 
 		elseif strcmp(get(src,'Tag'),'plot_response_here')
