@@ -28,12 +28,24 @@ if strcmp(class(fname),'char')
 	fname = strrep(fname,'.m','');
 	eval(['fname=@' fname]); 
 end
+assert(length(argOutNames(fname))<6,'manipualte::the function to be manipulated cannot have more than 5 outputs')
 
+% read preferences from preferences file (pref.m)
+pref = readPref;
 
 % defaults
-p = getModelParameters(fname);
+Parameters = getModelParameters(fname);
 stimulus = [];
 response = [];
+
+
+% these are placeholders that will store all the responses from the model
+model_props.arg_out_names = argOutNames(fname);
+model_props.n_outputs = length(argOutNames(fname));
+all_plot_handles = NaN(model_props.n_outputs,1); % array containing handles to axes showing model outputs. the first is reserved for the stimulus
+plot_control_string = '';
+
+r1 = []; r2 = []; r3 = []; r4 = []; r5 = [];
 
 
 if ~nargin 
@@ -56,7 +68,7 @@ try
 	p = Parameters;
 catch
 end
-mp  =p;
+mp = p;
 
 if isempty(p)
 	error('Unable to figure out the model parameters. Specify manually')
@@ -110,13 +122,16 @@ else
 end
 
 if nargout(fname)
-	plotfig = figure('position',[50 250 900 740],'NumberTitle','off','IntegerHandle','off','Name','Manipulate.m','CloseRequestFcn',@QuitManipulateCallback,'Menubar','none');
+	if pref.debug_mode
+		disp('Function being manipulated has non-zero outputs. So manipulate will make a GUI to show all of this.')
+	end
+
+
+	plotfig = figure('position',[50 250 900 740],'NumberTitle','off','IntegerHandle','off','Name','Manipulate.m','CloseRequestFcn',@quitManipulateCallback);
 
 	modepanel = uibuttongroup(plotfig,'Title','Mode','Units','normalized','Position',[.01 .95 .25 .05]);
-
-	
-	mode_time = uicontrol(modepanel,'Units','normalized','Position',[.01 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Time Series','FontSize',10,'Callback',@update_plots);
-	mode_fun = uicontrol(modepanel,'Units','normalized','Position',[.51 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Function','FontSize',10,'Callback',@update_plots);
+	mode_time = uicontrol(modepanel,'Units','normalized','Position',[.01 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Time Series','FontSize',10,'Callback',@updatePlotLabels);
+	mode_fun = uicontrol(modepanel,'Units','normalized','Position',[.51 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Function','FontSize',10,'Callback',@updatePlotLabels);
 
 	if ~isempty(stimulus)
 		plot_control_string = ['stimulus' argOutNames(fname)];
@@ -130,21 +145,14 @@ if nargout(fname)
 		end
 	end
 	uicontrol(plotfig,'Units','normalized','Position',[.26 .93 .05 .05],'style','text','String','Plot')
-	plot_control = uicontrol(plotfig,'Units','normalized','Position',[.31 .935 .15 .05],'style','popupmenu','String',plot_control_string,'Callback',@update_plots,'Tag','plot_control');
+	plot_control = uicontrol(plotfig,'Units','normalized','Position',[.31 .935 .15 .05],'style','popupmenu','String',plot_control_string,'Callback',@updatePlotLabels,'Tag','plot_control');
 	
 	if ~isempty(response)
 		uicontrol(plotfig,'Units','normalized','Position',[.46 .93 .09 .05],'style','text','String','Response vs.')
-		plot_response_here = uicontrol(plotfig,'Units','normalized','Position',[.56 .935 .15 .05],'style','popupmenu','String',argOutNames(fname),'Callback',@update_plots,'Tag','plot_response_here');
+		plot_response_here = uicontrol(plotfig,'Units','normalized','Position',[.56 .935 .15 .05],'style','popupmenu','String',argOutNames(fname),'Callback',@updatePlotLabels,'Tag','plot_response_here');
 	end
 
-	if ~isempty(stimulus)
-		show_stim = 1;
-	else
-		show_stim = 0;
-	end
-	plot_these = zeros(nargout(fname),1);
-	plot_these(1) = 1; % stores which model outputs to plot
-	[stimplot,respplot] = make_plots(1+sum(plot_these),show_stim);
+	makePlotsGUI;
 
 	an = argOutNames(fname);
 	if ~isempty(response)
@@ -152,15 +160,14 @@ if nargout(fname)
 	end
 
 else
-	stimplot = []; respplot = []; plot_these = [];
+	if pref.debug_mode
+		disp('manipualte::Function to be manipualted has no outputs. I will assume that it will handle its own plotting')
+	end
 end
 
 Height = 440;
-controlfig = figure('position',[1000 250 400 Height], 'Toolbar','none','Menubar','none','NumberTitle','off','IntegerHandle','off','CloseRequestFcn',@QuitManipulateCallback,'Name','Manipulate');
+controlfig = figure('position',[1000 250 400 Height], 'Toolbar','none','Menubar','none','NumberTitle','off','IntegerHandle','off','CloseRequestFcn',@quitManipulateCallback,'Name','Manipulate');
 axis off
-
-r1 = []; r2 = []; r3 = []; r4 = []; r5 = [];
-
 
 % declare variables here so that all functions see them
 lbcontrol = [];
@@ -172,103 +179,70 @@ saved_state_control = [];
 
 if ~isempty(stimulus)
 	% plot the stimulus
-	plot(stimplot,stimulus)
-	title(stimplot,'Stimulus')
+	plot(all_plot_handles(1),stimulus)
+	title(all_plot_handles(1),'Stimulus')
 end
 
-RedrawSlider(NaN,NaN);
-EvaluateModel2(stimplot,respplot,[]);
+redrawSlider(NaN,NaN);
+evaluateModel;
 
 
-
-
-function [] = update_plots(src,event)
-	% remove all the plots
-	delete(stimplot)
-	for i = 1:length(respplot)
-		delete(respplot(i))
-	end
-
-	% first determine which mode we are operating in
-	if get(mode_time,'Value')
-		if strcmp(get(src,'Tag'),'plot_control')
-			% ok. user wants to add/remove a plot. rebuild list of plots 
-			if any(strfind(char(plot_control_string(get(src,'Value'))),'+'))
-				% need to add this plot
-				plot_control_string{get(src,'Value')} = strrep(plot_control_string{get(src,'Value')},'+','');
-				if get(src,'Value') > 1
-					plot_these(get(src,'Value')-1) = 1;
-				else
-					show_stim = 1;
-				end
-			else
-				plot_control_string{get(src,'Value')} = strcat('+',plot_control_string{get(src,'Value')});
-				if get(src,'Value') > 1
-					plot_these(get(src,'Value')-1) = 0;
-				else
-					show_stim = 0;
-				end
-			end
-
-			[stimplot,respplot] = make_plots(1+sum(plot_these),show_stim);
-			set(plot_control,'String',plot_control_string);
-			EvaluateModel2(stimplot,respplot,plot_these);
-			an = argOutNames(fname);
-			try
-				set(plot_response_here,'String',an(find(plot_these)));
-			catch
-			end
-			
-
-		elseif strcmp(get(src,'Tag'),'plot_response_here')
-			error('196 not coded')
-		elseif strcmp(get(src,'String'),'Time Series')
-			if ~isempty(stimulus)
-				show_stim = 1;
-			end
-			[stimplot,respplot] = make_plots(1+sum(plot_these),show_stim);
-			set(plot_control,'String',plot_control_string);
-			EvaluateModel2(stimplot,respplot,plot_these);
-			an = argOutNames(fname);
-			try
-				set(plot_response_here,'String',an(find(plot_these)));
-			catch
-			end
-		end
-	elseif get(mode_fun,'Value')
-		show_stim = 0;
-		[stimplot,respplot] = make_plots(sum(plot_these),show_stim);
-		EvaluateModel2([],respplot,plot_these);
-	end
-end
-
-function [stimplot,respplot] = make_plots(nplots,show_stim)
-	stimplot = []; respplot = [];
-	if show_stim
-		stimplot = autoPlot(nplots,1,1);
-		for i = 2:nplots
-			respplot(i-1) = autoPlot(nplots,i,1);
-		end
-
-		if nplots > 1
-			% link plots
-			linkaxes([stimplot respplot],'x');
-		end
+function updatePlotLabels(src,event)
+	if any(strfind(src.String{src.Value},'+'))
+		src.String{src.Value} = strrep(src.String{src.Value},'+','');
 	else
-		for i = 1:nplots
-			respplot(i) = autoPlot(nplots,i,1);
-		end
+		src.String{src.Value} = ['+' src.String{src.Value}];
+	end
 
-		if nplots > 1
-			% link plots
-			linkaxes(respplot,'x');
+	makePlotsGUI;
+
+end
+
+function makePlotsGUI()
+	
+	% first clear the figure of all previous plots
+	try
+		for i = 1:length(all_plot_handles)
+			try
+				delete(all_plot_handles(i))
+			end
 		end
 	end
+
+	all_plot_handles = NaN(length(plot_control_string),1);
+
+	% first figure out how many plots to make in total. this is determines by how many items in plot_control_string exist without a "+" before them
+	plot_control_string = plot_control.String;
+	plot_these = false(length(plot_control_string),1);
+	for i = 1:length(plot_control_string)
+		if isempty(strfind(plot_control_string{i},'+'))
+			plot_these(i) = true;
+		end
+	end
+
+
+	c = 1;
+	for i = 1:length(plot_these)
+		if plot_these(i)
+			all_plot_handles(i) = autoPlot(sum(plot_these),c,1);
+			c = c + 1;
+			if i == 1
+				% stimulus
+				plot(all_plot_handles(1),stimulus)
+				title(all_plot_handles(1),'Stimulus')
+			else
+				% response
+				title(all_plot_handles(i),model_props.arg_out_names{i-1})
+			end
+				
+		end
+	end
+	linkaxes(all_plot_handles,'x')
 
 end
 
 
-function  [] = QuitManipulateCallback(~,~)
+function  [] = quitManipulateCallback(~,~)
 	try
 		delete(plotfig)
 	catch
@@ -279,18 +253,19 @@ function  [] = QuitManipulateCallback(~,~)
 	end
 end
 
-function [] = EvaluateModel2(stimplot,respplot,event)
-	% replacement of Evaluate Model given the near-total rewrite of manipulate
-	if nargin(fname) == 2
+function [] = evaluateModel(event)
 
-		% clear all the axes
-		for ip = 1:length(respplot)
-			cla(respplot(ip))
+
+	if nargin(fname) == 2
+		if pref.debug_mode
+			disp('manipulate::function we are manipulating has two inputs, assuming that they are stimulus and parameter structure')
 		end
 
-		an = argOutNames(fname);
 		if get(mode_fun,'Value')
-			% plot all the data supplied, if any
+			if pref.debug_mode
+				disp('manipulate::function manipulation mode. Not coded')
+				keyboard
+			end
 			hold (respplot(1),'on')
 			plot(respplot(1),stimulus,response);
 
@@ -302,17 +277,38 @@ function [] = EvaluateModel2(stimplot,respplot,event)
 			this_resp = fname(this_stim,p);
 
 			plot(respplot(1),this_stim,this_resp,'k')
+			
 
 		else
-			disp('not coded')
+			if pref.debug_mode
+				disp('manipulate::model manipulation mode.')
+			end
+			% evaluate the model and get all outputs
+			es = '[';
+			for i = 1:length(argOutNames(fname))
+				es = [es 'r', mat2str(i) ,','];
+			end
+			es(end) = '';
+			es = [es ']=' char(fname) ,'(stimulus,p);'];
+			eval(es);
+			% OK, now we have all the outputs from the model. plot what is necessary where needed:
+			plot_control_string = plot_control.String;
+			for i = 2:length(plot_control_string)
+				if isempty(strfind(plot_control_string{i},'+'))
+					cla(all_plot_handles(i))
+					eval(['plot(all_plot_handles(i),r',mat2str(i-1),');'])
+					title(all_plot_handles(i),plot_control_string{i})
+					this_resp = [];
+					eval(['this_resp = r' mat2str(i-1),';']);
+					z = floor(length(this_resp)/2);
+					try
+						set(all_plot_handles(i),'YLim',[min(this_resp(z:end)) max(this_resp(z:end))])
+					catch
+						% probably an error where the plot is shit, with NaNs, or flat
+					end
+				end
+			end
 		end
-	
-
-		if ~isempty(stimulus) && ~isempty(stimplot)
-			plot(stimplot,stimulus)
-			title(stimplot,'Stimulus')
-		end
-
 		
 	else
 		% just evaluate the model, because the model will handle all plotting 
@@ -328,7 +324,7 @@ end
 
             
 
-function [] = RedrawSlider(src,event)
+function [] = redrawSlider(src,event)
 	temp=whos('src');
 	if ~strcmp(temp.class,'matlab.ui.control.UIControl')
 
@@ -336,28 +332,23 @@ function [] = RedrawSlider(src,event)
 		f = fieldnames(p);
 		f=f(valid_fields);
 
-		% pvec = struct2mat(p);
 		pvec = (ub+lb)/2;
 		
 		nspacing = Height/(length(f)+1);
 		for i = 1:length(f)
-
-			% if pvec(i) > lb(i) && pvec(i) < ub(i)
-			% else
-			% 	lb(i) = pvec(i) - 1;
-			% 	ub(i) = pvec(i) + 1;
-			% end	
-			control(i) = uicontrol(controlfig,'Position',[70 Height-i*nspacing 230 20],'Style', 'slider','FontSize',12,'Callback',@SliderCallback,'Min',lb(i),'Max',ub(i),'Value',pvec(i));
-			try    % R2013b and older
-			   addlistener(control(i),'ActionEvent',@SliderCallback);
-			catch  % R2014a and newer
-			   addlistener(control(i),'ContinuousValueChange',@SliderCallback);
+			control(i) = uicontrol(controlfig,'Position',[70 Height-i*nspacing 230 20],'Style', 'slider','FontSize',12,'Callback',@sliderCallback,'Min',lb(i),'Max',ub(i),'Value',pvec(i));
+			if pref.live_update
+				try    % R2013b and older
+				   addlistener(control(i),'ActionEvent',@sliderCallback);
+				catch  % R2014a and newer
+				   addlistener(control(i),'ContinuousValueChange',@sliderCallback);
+				end
 			end
 			% hat tip: http://undocumentedmatlab.com/blog/continuous-slider-callback
 			thisstring = strkat(f{i},'=',mat2str(eval(strcat('p.',f{i}))));
 			controllabel(i) = uicontrol(controlfig,'Position',[10 Height-i*nspacing 50 20],'style','text','String',thisstring);
-			lbcontrol(i) = uicontrol(controlfig,'Position',[300 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(lb(i)),'Callback',@RedrawSlider);
-			ubcontrol(i) = uicontrol(controlfig,'Position',[350 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(ub(i)),'Callback',@RedrawSlider);
+			lbcontrol(i) = uicontrol(controlfig,'Position',[300 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(lb(i)),'Callback',@redrawSlider);
+			ubcontrol(i) = uicontrol(controlfig,'Position',[350 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(ub(i)),'Callback',@redrawSlider);
 		end
 		clear i
 		uicontrol(controlfig,'Position',[10 Height-length(f)*nspacing-30 100 20],'style','pushbutton','String','+State','Callback',@export);
@@ -369,7 +360,7 @@ function [] = RedrawSlider(src,event)
 		else
 			saved_state_string = 'No Saved states.';
 		end
-		saved_state_control = uicontrol(controlfig,'Position',[110 Height-length(f)*nspacing-30 150 20],'style','popupmenu','String',saved_state_string,'Callback',@go_to_saved_state);
+		saved_state_control = uicontrol(controlfig,'Position',[110 Height-length(f)*nspacing-30 150 20],'style','popupmenu','String',saved_state_string,'Callback',@goToSavedState);
 
 		remove_saved_state_control = uicontrol(controlfig,'Position',[260 Height-length(f)*nspacing-30 100 20],'style','pushbutton','String','-State','Callback',@remove_saved_state);
 
@@ -393,12 +384,12 @@ function [] = RedrawSlider(src,event)
 	end
 end         
 
-function [] = go_to_saved_state(~,event)
+function [] = goToSavedState(~,event)
 	this_state = get(saved_state_control,'Value');
 	p = mp(this_state);
 
 	% Evaluate the model
-	EvaluateModel2(stimplot,respplot,event);
+	evaluateModel(event);
 
 	% fix all the slider positions
 	f = fieldnames(p);
@@ -452,7 +443,7 @@ function [] = export(~,~)
 end
 
 
-function  [] = SliderCallback(src,event)
+function  [] = sliderCallback(src,event)
 
 	% figure out which slider was moved
 	this_slider = find(control == src);
@@ -473,7 +464,7 @@ function  [] = SliderCallback(src,event)
 	set(controlfig,'Name','...')
 
 	% evalaute the model and update the plot
-	EvaluateModel2(stimplot,respplot,event)
+	evaluateModel(event)
 
 	% re-enable all the sliders
 	set(control,'Enable','on')
