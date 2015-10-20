@@ -237,7 +237,9 @@ function makePlotsGUI()
 				
 		end
 	end
+	warning off
 	linkaxes(all_plot_handles,'x')
+	warning on
 
 end
 
@@ -332,7 +334,18 @@ function [] = redrawSlider(src,event)
 		f = fieldnames(p);
 		f=f(valid_fields);
 
-		pvec = (ub+lb)/2;
+		% pvec = (ub+lb)/2;
+		pvec = struct2mat(p);
+
+		% make sure the bounds are OK
+		for i = 1:length(pvec)
+			if pvec(i) > ub(i)
+				ub(i) = pvec(i);
+			end
+			if pvec(i) < lb(i)
+				lb(i) = pvec(i) - eps;
+			end
+		end
 		
 		nspacing = Height/(length(f)+1);
 		for i = 1:length(f)
@@ -363,6 +376,8 @@ function [] = redrawSlider(src,event)
 		saved_state_control = uicontrol(controlfig,'Position',[110 Height-length(f)*nspacing-30 150 20],'style','popupmenu','String',saved_state_string,'Callback',@goToSavedState);
 
 		remove_saved_state_control = uicontrol(controlfig,'Position',[260 Height-length(f)*nspacing-30 100 20],'style','pushbutton','String','-State','Callback',@remove_saved_state);
+
+
 
 	else
 		% find the control that is being changed
