@@ -298,6 +298,15 @@ function [] = evaluateModel(event)
 			for i = 2:length(plot_control_string)
 				if isempty(strfind(plot_control_string{i},'+'))
 					cla(all_plot_handles(i))
+
+					% plot the response if needed
+					if ~isempty(response)
+						if i == plot_response_here.Value+1 && isempty(strfind(plot_response_here.String{plot_response_here.Value},'+'))
+							plot(all_plot_handles(i),response,'k')
+							hold(all_plot_handles(i),'on')
+						end
+					end
+
 					eval(['plot(all_plot_handles(i),r',mat2str(i-1),');'])
 					title(all_plot_handles(i),plot_control_string{i})
 					this_resp = [];
