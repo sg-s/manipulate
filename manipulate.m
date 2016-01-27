@@ -5,7 +5,9 @@
 % 	manipulate(@fname) % (minimal usage)
 % 	manipulate(@fname,'Parameters',p,'stimulus',stimulus,'response',response,'ub',ub,'lb',lb)
 %
-% where p is a structure containing the parameters of the model you want to manipulate. ub and lb are structures with the same fields as p.  
+% where p is a structure containing the parameters of the model 
+% you want to manipulate. ub and lb are structures with the same 
+% fields as p.  
 % The function to be manipulated (fname) should conform to the following standard: 
 % 	
 % 	[r]=fname(stimulus,p);
@@ -13,14 +15,22 @@
 % where stimulus is an optional matrix that your function might need
 % p is a structure containing the parameters you want to manipulate 
 % 
-% created by Srinivas Gorur-Shandilya at 10:20 , 09 April 2014. Contact me at http://srinivas.gs/contact/
+% created by Srinivas Gorur-Shandilya at 10:20 , 09 April 2014. 
+% Contact me at http://srinivas.gs/contact/
 % 
-% This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License. 
-% To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/.
+% This work is licensed under the Creative Commons 
+% Attribution-NonCommercial-ShareAlike 4.0 International License. 
+% To view a copy of this license, 
+% visit http://creativecommons.org/licenses/by-nc-sa/4.0/.
 
 
 
 function manipulate(fname,varargin)
+
+if ~nargin
+	help manipulate
+	return
+end
 
 % defensive programming
 assert(strcmp(class(fname),'function_handle') | strcmp(class(fname),'char'),'First argument should be a function handle to the model you want to manipulate, or the name of the model you want to manipulate');
@@ -28,13 +38,13 @@ if strcmp(class(fname),'char')
 	fname = strrep(fname,'.m','');
 	eval(['fname=@' fname]); 
 end
-assert(length(argOutNames(fname))<6,'manipualte::the function to be manipulated cannot have more than 5 outputs')
+assert(length(argOutNames(fname))<6,'manipulate::the function to be manipulated cannot have more than 5 outputs')
 
 % read preferences from preferences file (pref.m)
 pref = readPref;
 
 % defaults
-Parameters = getModelParameters(fname);
+parameters = getModelParameters(fname);
 stimulus = [];
 response = [];
 
@@ -65,7 +75,7 @@ else
 end
 
 try
-	p = Parameters;
+	p = parameters;
 catch
 end
 mp = p;
@@ -130,8 +140,8 @@ if nargout(fname)
 	plotfig = figure('position',[50 250 900 740],'NumberTitle','off','IntegerHandle','off','Name','Manipulate.m','CloseRequestFcn',@quitManipulateCallback);
 
 	modepanel = uibuttongroup(plotfig,'Title','Mode','Units','normalized','Position',[.01 .95 .25 .05]);
-	mode_time = uicontrol(modepanel,'Units','normalized','Position',[.01 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Time Series','FontSize',10,'Callback',@updatePlotLabels);
-	mode_fun = uicontrol(modepanel,'Units','normalized','Position',[.51 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Function','FontSize',10,'Callback',@updatePlotLabels);
+	mode_time = uicontrol(modepanel,'Units','normalized','Position',[.01 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Time Series','FontSize',10,'Callback',@switchMode);
+	mode_fun = uicontrol(modepanel,'Units','normalized','Position',[.51 .1 .5 .9], 'Style', 'radiobutton', 'String', 'Function','FontSize',10,'Callback',@switchMode);
 
 	if ~isempty(stimulus)
 		plot_control_string = ['stimulus' argOutNames(fname)];
@@ -145,23 +155,25 @@ if nargout(fname)
 		end
 	end
 	uicontrol(plotfig,'Units','normalized','Position',[.26 .93 .05 .05],'style','text','String','Plot')
-	plot_control = uicontrol(plotfig,'Units','normalized','Position',[.31 .935 .15 .05],'style','popupmenu','String',plot_control_string,'Callback',@updatePlotLabels,'Tag','plot_control');
+	plot_control = uicontrol(plotfig,'Units','normalized','Position',[.31 .935 .15 .05],'style','popupmenu','String',plot_control_string,'Callback',@togglePlotVisibility,'Tag','plot_control');
 	
 	if ~isempty(response)
 		uicontrol(plotfig,'Units','normalized','Position',[.46 .93 .09 .05],'style','text','String','Response vs.')
-		plot_response_here = uicontrol(plotfig,'Units','normalized','Position',[.56 .935 .15 .05],'style','popupmenu','String',argOutNames(fname),'Callback',@updatePlotLabels,'Tag','plot_response_here');
+		plot_response_here = uicontrol(plotfig,'Units','normalized','Position',[.56 .935 .15 .05],'style','popupmenu','String',argOutNames(fname),'Callback',@togglePlotVisibility,'Tag','plot_response_here');
 	end
+
+	uicontrol(plotfig,'Units','normalized','Position',[.66 .955 .10 .03],'style','togglebutton','String','LogXAxis','Callback',@toggleLogXAxis);
 
 	makePlotsGUI;
 
-	an = argOutNames(fname);
+	an = ['Stimulus', argOutNames(fname)];
 	if ~isempty(response)
 		set(plot_response_here,'String',an(find(plot_these)));
 	end
 
 else
 	if pref.debug_mode
-		disp('manipualte::Function to be manipualted has no outputs. I will assume that it will handle its own plotting')
+		disp('manipualte::Function to be manipulated has no outputs. I will assume that it will handle its own plotting')
 	end
 end
 
@@ -187,18 +199,62 @@ redrawSlider(NaN,NaN);
 evaluateModel;
 
 
-function updatePlotLabels(src,event)
-	if any(strfind(src.String{src.Value},'+'))
-		src.String{src.Value} = strrep(src.String{src.Value},'+','');
+function toggleLogXAxis(src,~)
+	for ti = 1:length(all_plot_handles)
+		temp = '';
+		try
+			temp = get(all_plot_handles(ti),'XScale');
+		catch
+		end
+		if ~isempty(temp)
+			if strcmpi(temp,'log')
+				set(all_plot_handles(ti),'XScale','linear')
+			else
+				set(all_plot_handles(ti),'XScale','log')
+			end
+		end
+	end
+end
+
+function switchMode(src,event)
+	if strcmpi(src.String,'Function')
+		disp('Switching to function mode...')
+		% we are switching to a function mode
+		% disable all stimulus
+		plot_control_string = get(plot_control,'String');
+		if isempty(strfind(plot_control_string{find(strcmp('stimulus',plot_control_string))},'+'))
+			% we are currently showing the stimulus. use togglePlotVisibility to not show
+			set(plot_control,'Value',find(strcmp('stimulus',plot_control_string)));
+			togglePlotVisibility(plot_control,[]);
+		end
 	else
-		src.String{src.Value} = ['+' src.String{src.Value}];
+		disp('Switching to model mode')
+		keyboard
+	end
+
+end
+
+function togglePlotVisibility(src,event)
+	this_string  = src.String;
+	if iscell(this_string)
+		this_string = this_string{src.Value};
+	end
+	if any(strfind(this_string,'+'))
+		this_string = strrep(this_string,'+','');
+	else
+		this_string = ['+' this_string];
+	end
+	if iscell(src.String)
+		src.String{src.Value} = this_string;
+	else
+		src.String = this_string;
 	end
 
 	makePlotsGUI;
 
 end
 
-function makePlotsGUI()
+function makePlotsGUI(~,~)
 	
 	% first clear the figure of all previous plots
 	try
@@ -263,36 +319,28 @@ function [] = evaluateModel(event)
 			disp('manipulate::function we are manipulating has two inputs, assuming that they are stimulus and parameter structure')
 		end
 
+		% evaluate the model and get all outputs
+		es = '[';
+		for i = 1:length(argOutNames(fname))
+			es = [es 'r', mat2str(i) ,','];
+		end
+		es(end) = '';
+		es = [es ']=' char(fname) ,'(stimulus,p);'];
+		eval(es);
+
 		if get(mode_fun,'Value')
 			if pref.debug_mode
-				disp('manipulate::function manipulation mode. Not coded')
-				keyboard
+				disp('manipulate::function manipulation mode.')
 			end
-			hold (respplot(1),'on')
-			plot(respplot(1),stimulus,response);
 
-			% now evaluate the function ONCE for a superset of all the stimulus
-			this_stim = nonnans(sort(stimulus(:)));
-			this_stim = linspace(this_stim(1),this_stim(end),100);
-
-			% evaluate the model
-			this_resp = fname(this_stim,p);
-
-			plot(respplot(1),this_stim,this_resp,'k')
-			
-
+			% in function mode, we do not allow showing the stimulus. so simply plot the response and be done with it.
+			plot(nonnans(all_plot_handles),stimulus,r1);
+		
 		else
 			if pref.debug_mode
 				disp('manipulate::model manipulation mode.')
 			end
-			% evaluate the model and get all outputs
-			es = '[';
-			for i = 1:length(argOutNames(fname))
-				es = [es 'r', mat2str(i) ,','];
-			end
-			es(end) = '';
-			es = [es ']=' char(fname) ,'(stimulus,p);'];
-			eval(es);
+
 			% OK, now we have all the outputs from the model. plot what is necessary where needed:
 			plot_control_string = plot_control.String;
 			for i = 2:length(plot_control_string)
@@ -312,11 +360,11 @@ function [] = evaluateModel(event)
 					this_resp = [];
 					eval(['this_resp = r' mat2str(i-1),';']);
 					z = floor(length(this_resp)/2);
-					try
-						set(all_plot_handles(i),'YLim',[min(this_resp(z:end)) max(this_resp(z:end))])
-					catch
-						% probably an error where the plot is shit, with NaNs, or flat
-					end
+					% try
+					% 	set(all_plot_handles(i),'YLim',[min(this_resp(z:end)) max(this_resp(z:end))])
+					% catch
+					% 	% probably an error where the plot is shit, with NaNs, or flat
+					% end
 				end
 			end
 		end
@@ -367,7 +415,7 @@ function [] = redrawSlider(src,event)
 				end
 			end
 			% hat tip: http://undocumentedmatlab.com/blog/continuous-slider-callback
-			thisstring = strkat(f{i},'=',mat2str(eval(strcat('p.',f{i}))));
+			thisstring = [f{i} '=',mat2str(eval(strcat('p.',f{i})))];
 			controllabel(i) = uicontrol(controlfig,'Position',[10 Height-i*nspacing 50 20],'style','text','String',thisstring);
 			lbcontrol(i) = uicontrol(controlfig,'Position',[300 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(lb(i)),'Callback',@redrawSlider);
 			ubcontrol(i) = uicontrol(controlfig,'Position',[350 Height-i*nspacing+3 40 20],'style','edit','String',mat2str(ub(i)),'Callback',@redrawSlider);
@@ -420,7 +468,7 @@ function [] = goToSavedState(~,event)
 	f=f(valid_fields);
 
 	for i = 1:length(controllabel)
-		thisstring = strkat(f{i},'=',oval(eval(strcat('p(length(p)).',f{i})),2));
+		thisstring = [ f{i},'=',oval(eval(strcat('p(length(p)).',f{i})),2) ];
 
 		% update the label
 		set(controllabel(i),'String',thisstring);
@@ -478,7 +526,7 @@ function  [] = sliderCallback(src,event)
 	
 	thisval = get(control(this_slider),'Value');
 	eval((strcat('p(length(p)).',f{this_slider},'=thisval;')));
-	thisstring = strkat(f{this_slider},'=',oval(eval(strcat('p(length(p)).',f{this_slider})),2));
+	thisstring = [ f{this_slider},'=',oval(eval(strcat('p(length(p)).',f{this_slider})),2) ];
 
 	% update the label
 	controllabel(this_slider) = uicontrol(controlfig,'Position',[10 Height-this_slider*nspacing 50 20],'style','text','String',thisstring);
