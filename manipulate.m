@@ -3,7 +3,7 @@
 % usage: 
 %
 % 	manipulate(@fname) % (minimal usage)
-% 	manipulate(@fname,'Parameters',p,'stimulus',stimulus,'response',response,'ub',ub,'lb',lb)
+% 	manipulate(@fname,'parameters',p,'stimulus',stimulus,'response',response,'ub',ub,'lb',lb)
 %
 % where p is a structure containing the parameters of the model 
 % you want to manipulate. ub and lb are structures with the same 
@@ -38,7 +38,7 @@ if strcmp(class(fname),'char')
 	fname = strrep(fname,'.m','');
 	eval(['fname=@' fname]); 
 end
-assert(length(argOutNames(fname))<6,'manipulate::the function to be manipulated cannot have more than 5 outputs')
+assert(length(argOutNames(fname))<7,'manipulate::the function to be manipulated cannot have more than 6 outputs')
 
 % read preferences from preferences file (pref.m)
 pref = readPref;
@@ -55,7 +55,7 @@ model_props.n_outputs = length(argOutNames(fname));
 all_plot_handles = NaN(model_props.n_outputs,1); % array containing handles to axes showing model outputs. the first is reserved for the stimulus
 plot_control_string = '';
 
-r1 = []; r2 = []; r3 = []; r4 = []; r5 = [];
+r1 = []; r2 = []; r3 = []; r4 = []; r5 = []; r6 = []; r7 = []; r8 = [];
 
 
 if ~nargin 
@@ -73,6 +73,8 @@ else
     	error('Inputs need to be name value pairs')
 	end
 end
+
+
 
 try
 	p = parameters;
@@ -164,6 +166,8 @@ if nargout(fname)
 
 	uicontrol(plotfig,'Units','normalized','Position',[.66 .955 .10 .03],'style','togglebutton','String','LogXAxis','Callback',@toggleLogXAxis);
 
+	uicontrol(plotfig,'Units','normalized','Position',[.56 .955 .10 .03],'style','togglebutton','String','LogYAxis','Callback',@toggleLogYAxis);
+
 	makePlotsGUI;
 
 	an = ['Stimulus', argOutNames(fname)];
@@ -189,11 +193,23 @@ controllabel = [];
 nspacing = [];
 saved_state_control = [];
 
-if ~isempty(stimulus)
-	% plot the stimulus
-	plot(all_plot_handles(1),stimulus)
-	title(all_plot_handles(1),'Stimulus')
-end
+% if ~isempty(stimulus)
+% 	% plot the stimulus
+% 	if size(stimulus,2) > 1
+% 		% use parula for color order
+% 		ctemp = parula(7);
+% 		if width(stimulus) > 1
+% 			ctemp = parula(size(stimulus,2));
+% 		end	
+% 		keyboard
+% 		for ci = 1:size(stimulus,2)
+% 			plot(all_plot_handles(1),stimulus(:,ci),'LineWidth',2,'Color',ctemp(:,ci))
+% 		end
+% 	else
+% 		plot(all_plot_handles(1),stimulus,'LineWidth',2)
+% 	end
+% 	title(all_plot_handles(1),'Stimulus')
+% end
 
 redrawSlider(NaN,NaN);
 evaluateModel;
@@ -211,6 +227,23 @@ function toggleLogXAxis(src,~)
 				set(all_plot_handles(ti),'XScale','linear')
 			else
 				set(all_plot_handles(ti),'XScale','log')
+			end
+		end
+	end
+end
+
+function toggleLogYAxis(src,~)
+	for ti = 1:length(all_plot_handles)
+		temp = '';
+		try
+			temp = get(all_plot_handles(ti),'YScale');
+		catch
+		end
+		if ~isempty(temp)
+			if strcmpi(temp,'log')
+				set(all_plot_handles(ti),'YScale','linear')
+			else
+				set(all_plot_handles(ti),'YScale','log')
 			end
 		end
 	end
@@ -281,10 +314,21 @@ function makePlotsGUI(~,~)
 	for i = 1:length(plot_these)
 		if plot_these(i)
 			all_plot_handles(i) = autoPlot(sum(plot_these),c,1);
+
 			c = c + 1;
 			if i == 1
 				% stimulus
-				plot(all_plot_handles(1),stimulus)
+				if size(stimulus,2) > 1
+					cla(all_plot_handles(1))
+					hold on
+					ctemp = parula(size(stimulus,2));
+					
+					for ci = 1:size(stimulus,2)
+						plot(all_plot_handles(1),stimulus(:,ci),'LineWidth',2,'Color',ctemp(ci,:))
+					end
+				else
+					plot(all_plot_handles(1),stimulus,'LineWidth',2)
+				end
 				title(all_plot_handles(1),'Stimulus')
 			else
 				% response
@@ -355,10 +399,22 @@ function [] = evaluateModel(event)
 						end
 					end
 
-					eval(['plot(all_plot_handles(i),r',mat2str(i-1),');'])
+					%eval(['plot(all_plot_handles(i),r',mat2str(i-1),');'])
 					title(all_plot_handles(i),plot_control_string{i})
 					this_resp = [];
 					eval(['this_resp = r' mat2str(i-1),';']);
+
+					% use parula for color order
+					ctemp = parula(7);
+					if width(this_resp) > 1
+						ctemp = parula(width(this_resp));
+					end	
+					set(all_plot_handles(i),'ColorOrder',ctemp);
+					cla(all_plot_handles(i))
+					set(all_plot_handles(i),'NextPlot','add');
+
+
+					plot(all_plot_handles(i),this_resp,'LineWidth',2)
 					z = floor(length(this_resp)/2);
 					% try
 					% 	set(all_plot_handles(i),'YLim',[min(this_resp(z:end)) max(this_resp(z:end))])
