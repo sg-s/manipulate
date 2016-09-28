@@ -164,9 +164,9 @@ if nargout(fname)
 		plot_response_here = uicontrol(plotfig,'Units','normalized','Position',[.56 .935 .15 .05],'style','popupmenu','String',argOutNames(fname),'Callback',@togglePlotVisibility,'Tag','plot_response_here');
 	end
 
-	uicontrol(plotfig,'Units','normalized','Position',[.66 .955 .10 .03],'style','togglebutton','String','LogXAxis','Callback',@toggleLogXAxis);
+	uicontrol(plotfig,'Units','normalized','Position',[.66 .005 .10 .03],'style','togglebutton','String','LogXAxis','Callback',@toggleLogXAxis);
 
-	uicontrol(plotfig,'Units','normalized','Position',[.56 .955 .10 .03],'style','togglebutton','String','LogYAxis','Callback',@toggleLogYAxis);
+	uicontrol(plotfig,'Units','normalized','Position',[.56 .005 .10 .03],'style','togglebutton','String','LogYAxis','Callback',@toggleLogYAxis);
 
 	makePlotsGUI;
 
