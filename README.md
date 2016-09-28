@@ -4,7 +4,7 @@ Mathematica-style model and function manipulation in MATLAB.
 
 ## Function Manipulation 
 
-Manipulate can work with any function in the form `[a,b,c...] = function(p,x)` where p is a structure array containing parameters. 
+Manipulate can work with any function in the form `[a,b,c...] = function(S,p)` where p is a structure array containing parameters. 
 
 Here, we can manipulate the [Hill](https://github.com/sg-s/srinivas.gs_mtools/blob/master/hill.m) function using:
 
@@ -19,10 +19,10 @@ manipulate(@hill,'stimulus',1:100)
 
 ## Model manipulation 
 
-Manipulate can also work with models in the form `[a,b,c...] = function(p,x)` where p is a structure array containing parameters. 
+Manipulate can also work with models in the form `[a,b,c...] = function(S,p)` where p is a structure array containing parameters. 
 
 ```
-manipulate(@hill,'stimulus',1:100)
+manipulate(@hill,'stimulus',1:100,'parameters',p)
 ```
 
 allows us to:
@@ -48,7 +48,7 @@ Install using my package manager:
 ```matlab
 urlwrite('http://srinivas.gs/install.m','install.m')
 install sg-s/manipulate
-install sg-s/srinivas.gs_mtools % Manipulate needs this to work
+install sg-s/srinivas.gs_mtools % manipulate needs this to work
 ```
 
 or install using git: 
