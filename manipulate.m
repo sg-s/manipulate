@@ -135,7 +135,7 @@ end
 
 if nargout(fname)
 	if pref.debug_mode
-		disp('Function being manipulated has non-zero outputs. So manipulate will make a GUI to show all of this.')
+		cprintf('green','[INFO] Function being manipulated has non-zero outputs. So manipulate will make a GUI to show all of this.\n')
 	end
 
 
@@ -177,7 +177,7 @@ if nargout(fname)
 
 else
 	if pref.debug_mode
-		disp('manipualte::Function to be manipulated has no outputs. I will assume that it will handle its own plotting')
+		cprintf('red','[WARN] manipualte::Function to be manipulated has no outputs. I will assume that it will handle its own plotting')
 	end
 end
 
@@ -251,7 +251,9 @@ end
 
 function switchMode(src,event)
 	if strcmpi(src.String,'Function')
-		disp('Switching to function mode...')
+		if pref.debug_mode
+			cprintf('green',' [INFO] Switching to function mode...\n')
+		end
 		% we are switching to a function mode
 		% disable all stimulus
 		plot_control_string = get(plot_control,'String');
@@ -261,8 +263,9 @@ function switchMode(src,event)
 			togglePlotVisibility(plot_control,[]);
 		end
 	else
-		disp('Switching to model mode')
-		keyboard
+
+		cprintf('red',' [WARN] Switching to model mode.. This case not coded. You may see breakages.\n')
+
 	end
 
 end
@@ -374,7 +377,7 @@ function [] = evaluateModel(event)
 
 		if get(mode_fun,'Value')
 			if pref.debug_mode
-				disp('manipulate::function manipulation mode.')
+				cprintf('green','[INFO] manipulate::function manipulation mode.\n')
 			end
 
 			% in function mode, we do not allow showing the stimulus. so simply plot the response and be done with it.
@@ -382,7 +385,7 @@ function [] = evaluateModel(event)
 		
 		else
 			if pref.debug_mode
-				disp('manipulate::model manipulation mode.')
+				cprintf('green','[INFO] manipulate::model manipulation mode.\n')
 			end
 
 			% OK, now we have all the outputs from the model. plot what is necessary where needed:
