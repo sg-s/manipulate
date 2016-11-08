@@ -394,13 +394,7 @@ function [] = evaluateModel(event)
 				if isempty(strfind(plot_control_string{i},'+'))
 					cla(all_plot_handles(i))
 
-					% plot the response if needed
-					if ~isempty(response)
-						if i == plot_response_here.Value+1 && isempty(strfind(plot_response_here.String{plot_response_here.Value},'+'))
-							plot(all_plot_handles(i),response,'k')
-							hold(all_plot_handles(i),'on')
-						end
-					end
+					
 
 					%eval(['plot(all_plot_handles(i),r',mat2str(i-1),');'])
 					title(all_plot_handles(i),plot_control_string{i})
@@ -419,6 +413,15 @@ function [] = evaluateModel(event)
 
 					plot(all_plot_handles(i),this_resp,'LineWidth',2)
 					z = floor(length(this_resp)/2);
+
+					% plot the response if needed
+					if ~isempty(response)
+						if i == plot_response_here.Value+1 && isempty(strfind(plot_response_here.String{plot_response_here.Value},'+'))
+							plot(all_plot_handles(i),response,'k')
+							hold(all_plot_handles(i),'on')
+						end
+					end
+					
 					% try
 					% 	set(all_plot_handles(i),'YLim',[min(this_resp(z:end)) max(this_resp(z:end))])
 					% catch
