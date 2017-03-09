@@ -38,7 +38,7 @@ if strcmp(class(fname),'char')
 	fname = strrep(fname,'.m','');
 	eval(['fname=@' fname]); 
 end
-assert(length(argOutNames(fname))<7,'manipulate::the function to be manipulated cannot have more than 6 outputs')
+assert(length(argOutNames(fname))<9,'manipulate::the function to be manipulated cannot have more than 8 outputs')
 
 % read preferences from preferences file (pref.m)
 pref = readPref;
